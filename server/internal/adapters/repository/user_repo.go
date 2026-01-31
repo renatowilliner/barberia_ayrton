@@ -44,3 +44,16 @@ func (r *UserRepository) ListClients(ctx context.Context, limit, offset int) ([]
 	err := r.db.WithContext(ctx).Where("role = ?", domain.RoleClient).Limit(limit).Offset(offset).Find(&users).Error
 	return users, err
 }
+
+func (r *UserRepository) GetByVerificationToken(ctx context.Context, token string) (*domain.User, error) {
+	var user domain.User
+	err := r.db.WithContext(ctx).Where("verification_token = ?", token).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *UserRepository) Update(ctx context.Context, user *domain.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
+}

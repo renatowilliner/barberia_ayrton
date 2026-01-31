@@ -49,12 +49,7 @@ const AdminLayout = () => {
                         <span>Calendario</span>
                     </Link>
 
-                    <div className="pt-4 mt-4 border-t border-gray-200">
-                        <Link to="settings" className={navItemClass('settings')}>
-                            <Settings className={iconClass('settings')} />
-                            <span>Ajustes</span>
-                        </Link>
-                    </div>
+
                 </nav>
             </aside>
 

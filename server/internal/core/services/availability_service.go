@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/renatowilliner/barberia_ayrton/server/internal/core/domain"
 	"github.com/renatowilliner/barberia_ayrton/server/internal/core/ports"
 )
@@ -18,13 +19,14 @@ func NewAvailabilityService(repo ports.AvailabilityRepository, apptRepo ports.Ap
 	return &AvailabilityService{repo: repo, apptRepo: apptRepo}
 }
 
-func (s *AvailabilityService) SetAvailability(ctx context.Context, date, start, end string) error {
+func (s *AvailabilityService) SetAvailability(ctx context.Context, date, start, end string, duration int) error {
 	// TODO: Validate date format YYYY-MM-DD
 	availability := &domain.Availability{
-		Date:      date,
-		StartTime: start,
-		EndTime:   end,
-		IsBlocked: false,
+		Date:         date,
+		StartTime:    start,
+		EndTime:      end,
+		SlotDuration: duration,
+		IsBlocked:    false,
 	}
 	return s.repo.Save(ctx, availability)
 }
@@ -67,16 +69,22 @@ func (s *AvailabilityService) GetAvailableSlots(ctx context.Context, date time.T
 		return nil, err
 	}
 
+	// Determine slot duration
+	slotDuration := time.Duration(avail.SlotDuration) * time.Minute
+	if avail.SlotDuration == 0 {
+		slotDuration = 60 * time.Minute
+	}
+
 	// Generate slots: include any slot whose START time is before the end time
 	// This ensures if end time is 13:00, we include the 12:00-13:00 slot
-	for current.Before(endTime) {
+	for !current.After(endTime) {
 		occupied := false
 		for _, a := range appts {
 			if a.Status == domain.StatusCancelled {
 				continue
 			}
 			// if appointment overlaps this slot (any overlap), mark occupied
-			slotEnd := current.Add(1 * time.Hour)
+			slotEnd := current.Add(slotDuration)
 			if a.StartTime.Before(slotEnd) && a.EndTime.After(current) {
 				occupied = true
 				break
@@ -85,8 +93,12 @@ func (s *AvailabilityService) GetAvailableSlots(ctx context.Context, date time.T
 		if !occupied {
 			slots = append(slots, current)
 		}
-		current = current.Add(1 * time.Hour)
+		current = current.Add(slotDuration)
 	}
 
 	return slots, nil
+}
+
+func (s *AvailabilityService) DeleteAvailability(ctx context.Context, id uuid.UUID) error {
+	return s.repo.Delete(ctx, id)
 }

@@ -9,9 +9,10 @@ import (
 )
 
 type AvailabilityService interface {
-	SetAvailability(ctx context.Context, date, start, end string) error
+	SetAvailability(ctx context.Context, date, start, end string, duration int) error
 	GetAvailability(ctx context.Context) ([]domain.Availability, error)
 	GetAvailableSlots(ctx context.Context, date time.Time) ([]time.Time, error)
+	DeleteAvailability(ctx context.Context, id uuid.UUID) error
 }
 
 type AppointmentService interface {
@@ -33,5 +34,10 @@ type StatsService interface {
 
 type MessagingService interface {
 	// SendWhatsApp sends a WhatsApp message to the given phone (in international format)
+	// SendWhatsApp sends a WhatsApp message to the given phone (in international format)
 	SendWhatsApp(ctx context.Context, phone string, message string) error
+}
+
+type EmailService interface {
+	SendVerificationEmail(to, name, link string) error
 }

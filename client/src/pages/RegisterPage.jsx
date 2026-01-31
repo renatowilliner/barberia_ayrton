@@ -6,26 +6,41 @@ const RegisterPage = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         try {
             await api.post('/auth/register', formData);
-            // Auto login or redirect to login?
-            // Let's redirect to login for simplicity or login directly
-            // For better UX, let's login directly
-            const loginRes = await api.post('/auth/login', {
-                email: formData.email,
-                password: formData.password
-            });
-            localStorage.setItem('user', JSON.stringify(loginRes.data));
-            window.location.href = '/';
+            setSuccess(true);
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.error || 'Error en el registro');
         }
     };
+
+    if (success) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-black py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-md w-full text-center space-y-6 bg-[#111] p-8 rounded-lg border border-gray-800">
+                    <div className="text-white text-5xl mb-4">✉️</div>
+                    <h2 className="text-3xl font-bold text-white uppercase tracking-wider">Verifica tu Email</h2>
+                    <p className="text-gray-400">
+                        Hemos enviado un enlace de verificación a <strong>{formData.email}</strong>.
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                        Por favor, revisa tu bandeja de entrada (y spam) para activar tu cuenta y poder reservar.
+                    </p>
+                    <div className="pt-4">
+                        <Link to="/login" className="text-white underline hover:text-gray-300">
+                            Volver al inicio
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

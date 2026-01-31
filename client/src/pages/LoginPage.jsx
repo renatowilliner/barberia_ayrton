@@ -12,10 +12,12 @@ const LoginPage = () => {
         setError('');
         try {
             const res = await api.post('/auth/login', formData);
-            // res.data should be the user object
-            localStorage.setItem('user', JSON.stringify(res.data));
-            window.location.href = '/'; // Refresh/Redirect to Home to update Nav state
-            // For smoother UX we could use Context, but reload is simple MVP
+            // Store token and user data
+            if (res.data.token) {
+                localStorage.setItem('token', res.data.token);
+            }
+            localStorage.setItem('user', JSON.stringify(res.data.user));
+            window.location.href = '/'; // Refresh to update Auth state
             // navigate('/');
         } catch (err) {
             console.error(err);

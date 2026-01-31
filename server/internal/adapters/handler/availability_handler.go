@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/renatowilliner/barberia_ayrton/server/internal/core/ports"
 )
 
@@ -17,9 +18,10 @@ func NewAvailabilityHandler(svc ports.AvailabilityService) *AvailabilityHandler 
 }
 
 type SetAvailabilityRequest struct {
-	Date      string `json:"date" binding:"required"`
-	StartTime string `json:"start_time" binding:"required"`
-	EndTime   string `json:"end_time" binding:"required"`
+	Date         string `json:"date" binding:"required"`
+	StartTime    string `json:"start_time" binding:"required"`
+	EndTime      string `json:"end_time" binding:"required"`
+	SlotDuration int    `json:"slot_duration"`
 }
 
 func (h *AvailabilityHandler) SetAvailability(c *gin.Context) {
@@ -35,7 +37,7 @@ func (h *AvailabilityHandler) SetAvailability(c *gin.Context) {
 		return
 	}
 
-	err := h.svc.SetAvailability(c.Request.Context(), req.Date, req.StartTime, req.EndTime)
+	err := h.svc.SetAvailability(c.Request.Context(), req.Date, req.StartTime, req.EndTime, req.SlotDuration)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -72,4 +74,20 @@ func (h *AvailabilityHandler) GetSlots(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, slots)
+}
+
+func (h *AvailabilityHandler) DeleteAvailability(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	if err := h.svc.DeleteAvailability(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Availability deleted"})
 }

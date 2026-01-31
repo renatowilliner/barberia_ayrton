@@ -6,14 +6,22 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/renatowilliner/barberia_ayrton/server/internal/adapters/google"
 	"github.com/renatowilliner/barberia_ayrton/server/internal/adapters/handler"
 	"github.com/renatowilliner/barberia_ayrton/server/internal/adapters/messaging"
+	"github.com/renatowilliner/barberia_ayrton/server/internal/adapters/middleware"
+
 	"github.com/renatowilliner/barberia_ayrton/server/internal/adapters/repository"
 	"github.com/renatowilliner/barberia_ayrton/server/internal/core/services"
 )
 
 func main() {
+	// Load env vars
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system env vars")
+	}
+
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = "host=localhost user=postgres password=postgres dbname=barberia port=5432 sslmode=disable"
@@ -38,9 +46,19 @@ func main() {
 	apptService := services.NewAppointmentService(apptRepo, availRepo, userRepo, calendarAdapter, messagingAdapter)
 	statsService := services.NewStatsService(apptRepo)
 
+	// Email Service (Env vars or hardcoded for MVP/Plan)
+	// Ideally: os.Getenv("SMTP_HOST"), ...
+	emailService := services.NewEmailService(
+		os.Getenv("SMTP_HOST"),
+		587, // Port, maybe parse from env
+		os.Getenv("SMTP_USER"),
+		os.Getenv("SMTP_PASSWORD"),
+		"no-reply@barberia-ayrton.com",
+	)
+
 	// User handler
 	userHandler := handler.NewUserHandler(userRepo)
-	authHandler := handler.NewAuthHandler(userRepo)
+	authHandler := handler.NewAuthHandler(userRepo, emailService)
 
 	// Handlers
 	availHandler := handler.NewAvailabilityHandler(availService)
@@ -59,27 +77,29 @@ func main() {
 	// Routes
 	api := r.Group("/api")
 	{
-		// Availability
-		api.POST("/availability", availHandler.SetAvailability)
-		api.GET("/availability", availHandler.GetAvailability)
-		api.GET("/slots", availHandler.GetSlots)
-
-		// Appointments
-		api.POST("/appointments", apptHandler.Create)
-		api.GET("/appointments", apptHandler.List)
-		api.POST("/appointments/:id/confirm", apptHandler.Confirm)
-		api.POST("/appointments/:id/cancel", apptHandler.Cancel)
-
-		// Users
-		api.GET("/users", userHandler.List)
-		api.GET("/users/:id", userHandler.Get)
-
 		// Auth
 		api.POST("/auth/register", authHandler.Register)
 		api.POST("/auth/login", authHandler.Login)
+		api.GET("/auth/verify", authHandler.VerifyEmail)
 
-		// Stats
-		api.GET("/admin/stats", statsHandler.GetDashboardStats)
+		// Admin Routes (Protected)
+		admin := api.Group("/")
+		admin.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
+		{
+			// Admin Stats
+			admin.GET("/admin/stats", statsHandler.GetDashboardStats)
+
+			// Availability Management
+			admin.POST("/availability", availHandler.SetAvailability)
+			admin.DELETE("/availability/:id", availHandler.DeleteAvailability)
+
+			// Appointment Management
+			admin.GET("/appointments", apptHandler.List)
+
+			// User Management
+			admin.GET("/users", userHandler.List)
+			admin.GET("/users/:id", userHandler.Get)
+		}
 	}
 
 	port := os.Getenv("PORT")

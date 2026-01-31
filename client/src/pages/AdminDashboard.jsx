@@ -7,7 +7,8 @@ import api from '../services/api';
 const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
     const [selectedDate, setSelectedDate] = useState(format(startOfToday(), 'yyyy-MM-dd'));
-    const [dayConfig, setDayConfig] = useState({ start_time: '09:00', end_time: '18:00' });
+    const [dayConfig, setDayConfig] = useState({ start_time: '09:00', end_time: '18:00', slot_duration: 60 });
+    const [existingAvailability, setExistingAvailability] = useState(null);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState(null);
     const navigate = useNavigate();
@@ -36,13 +37,20 @@ const AdminDashboard = () => {
             const res = await api.get(`/availability?date=${date}`);
             if (res.data && res.data.length > 0) {
                 const avail = res.data[0];
-                setDayConfig({ start_time: avail.start_time, end_time: avail.end_time });
+                setExistingAvailability(avail);
+                setDayConfig({
+                    start_time: avail.start_time,
+                    end_time: avail.end_time,
+                    slot_duration: avail.slot_duration || 60
+                });
             } else {
-                setDayConfig({ start_time: '09:00', end_time: '18:00' });
+                setExistingAvailability(null);
+                setDayConfig({ start_time: '09:00', end_time: '18:00', slot_duration: 60 });
             }
         } catch (err) {
             console.error('Error fetching availability', err);
-            setDayConfig({ start_time: '09:00', end_time: '18:00' });
+            setExistingAvailability(null);
+            setDayConfig({ start_time: '09:00', end_time: '18:00', slot_duration: 60 });
         }
     };
 
@@ -57,8 +65,11 @@ const AdminDashboard = () => {
             await api.post('/availability', {
                 date: selectedDate,
                 start_time: dayConfig.start_time,
-                end_time: dayConfig.end_time
+                end_time: dayConfig.end_time,
+                slot_duration: parseInt(dayConfig.slot_duration)
             });
+            fetchAvailabilityForDate(selectedDate); // Refresh to get ID
+
             setMessage({ type: 'success', text: `Disponibilidad guardada para ${selectedDate}` });
             setTimeout(() => setMessage(null), 3000);
         } catch (error) {
@@ -66,6 +77,8 @@ const AdminDashboard = () => {
             setMessage({ type: 'error', text: 'Error al actualizar disponibilidad' });
         }
     };
+
+
 
     if (loading) return <div className="text-center py-8">Cargando panel...</div>;
 
@@ -138,7 +151,6 @@ const AdminDashboard = () => {
             <div className="flex gap-3">
                 <button onClick={() => navigate('/admin/appointments')} className="px-6 py-3 bg-ton-black text-white hover:bg-ton-gray transition-colors font-medium">Ver Citas</button>
                 <button onClick={() => window.open('https://calendar.google.com', '_blank')} className="px-6 py-3 bg-white border-2 border-ton-black text-ton-black hover:bg-ton-gray-light transition-colors font-medium">Abrir Google Calendar</button>
-                <button onClick={() => navigate('/admin/settings')} className="px-6 py-3 bg-white border-2 border-ton-wood text-ton-black hover:bg-ton-gray-light transition-colors font-medium">Configuración</button>
             </div>
 
             {/* Availability Config */}
@@ -180,20 +192,32 @@ const AdminDashboard = () => {
                                 onChange={(e) => setDayConfig({ ...dayConfig, end_time: e.target.value })}
                             />
                         </div>
+                        <div>
+                            <label className="block text-sm font-bold text-ton-black mb-2">Duración Turno</label>
+                            <select
+                                className="block w-full border-2 border-gray-300 py-3 px-4 focus:ring-2 focus:ring-ton-wood focus:border-ton-wood sm:text-sm"
+                                value={dayConfig.slot_duration}
+                                onChange={(e) => setDayConfig({ ...dayConfig, slot_duration: parseInt(e.target.value) })}
+                            >
+                                <option value={60}>60 minutos (1 hora)</option>
+                                <option value={30}>30 minutos</option>
+                            </select>
+                        </div>
                     </div>
 
-                    {/* Save Button */}
-                    <button
-                        onClick={handleUpdateAvailability}
-                        className="w-full bg-ton-black text-white py-4 px-4 hover:bg-ton-gray transition-colors font-bold text-base"
-                    >
-                        Guardar Horario para {selectedDate}
-                    </button>
+                    {/* Buttons */}
+                    <div className="flex gap-4">
+                        <button
+                            onClick={handleUpdateAvailability}
+                            className="w-full bg-ton-black text-white py-4 px-4 hover:bg-ton-gray transition-colors font-bold text-base"
+                        >
+                            {existingAvailability ? 'Actualizar Horario' : 'Guardar Horario'}
+                        </button>
+                    </div>
 
                     {/* Message */}
                     {message && (
-                        <div className={`mt-3 p-4 text-sm text-center font-medium ${message.type === 'success' ? 'bg-green-50 text-green-700 border-l-4 border-green-600' : 'bg-red-50 text-red-700 border-l-4 border-red-600'
-                            }`}>
+                        <div className={`mt-3 p-4 text-sm text-center font-medium ${message.type === 'success' ? 'bg-green-50 text-green-700 border-l-4 border-green-600' : 'bg-red-50 text-red-700 border-l-4 border-red-600'}`}>
                             {message.text}
                         </div>
                     )}
